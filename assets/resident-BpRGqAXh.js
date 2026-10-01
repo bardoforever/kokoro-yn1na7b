@@ -1,0 +1,1 @@
+import{d as e}from"./resident-Lq_vhST0.js";export{e as newResident};

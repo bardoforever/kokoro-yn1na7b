@@ -1,0 +1,1 @@
+import{t as e}from"./shops-CL9AOdzP.js";export{e as createShop};

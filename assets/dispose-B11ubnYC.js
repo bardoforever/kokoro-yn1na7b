@@ -1,0 +1,1 @@
+function e(e){e?.traverse(e=>{e.geometry&&!e.geometry.userData?.shared&&e.geometry.dispose();let t=Array.isArray(e.material)?e.material:e.material?[e.material]:[];for(let e of t)if(!e.userData?.shared){for(let t of[`map`,`alphaMap`,`emissiveMap`])e[t]?.userData?.disposable&&e[t].dispose();e.dispose()}})}export{e as t};

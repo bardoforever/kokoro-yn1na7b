@@ -1,0 +1,1 @@
+import{n as e}from"./room-CFsWwYt1.js";export{e as makeFurniture};

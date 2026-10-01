@@ -1,0 +1,1 @@
+import{t as e}from"./clothing-BtkohEBX.js";export{e as makeClothingProp};

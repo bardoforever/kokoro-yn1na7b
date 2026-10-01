@@ -1,0 +1,1 @@
+import{t as e}from"./clothes-Cn3J_84i.js";export{e as CLOTHES};

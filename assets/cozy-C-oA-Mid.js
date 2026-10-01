@@ -1,0 +1,1 @@
+import{t as e}from"./cozy-Bart8m6k.js";export{e as createCozy};

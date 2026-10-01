@@ -1,0 +1,1 @@
+import{i as e}from"./social-B51G8zG-.js";export{e as createSocial};

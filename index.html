@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head><meta name="robots" content="noindex,nofollow">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kokoro Island</title>
+  <style>@font-face{font-family:Nunito;font-weight:400 600;src:url(/kokoro-yn1na7b/fonts/Nunito-SemiBold.ttf)format("truetype");font-display:swap}@font-face{font-family:Nunito;font-weight:700 900;src:url(/kokoro-yn1na7b/fonts/Nunito-ExtraBold.ttf)format("truetype");font-display:swap}html,body{background:#8fd3ff;height:100%;margin:0;font-family:Nunito,system-ui,sans-serif;overflow:hidden}#title{z-index:10;text-align:center;color:#5a3b00;box-sizing:border-box;background:#fff8e6f2;border:4px solid #ff9f1c;border-radius:26px;width:min(420px,100vw - 32px);padding:22px 22px 16px;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);box-shadow:0 8px #c96a0055}#title.mini{padding:10px 14px;top:auto;bottom:12px;transform:translate(-50%)}#title.mini .logo,#title.mini .sub,#title.mini .row,#title.mini #hud,#title.mini #island{display:none}.logo{color:#ff8a00;letter-spacing:-1px;text-shadow:0 3px #ffd27a;font:900 44px/1 system-ui,sans-serif}.logo span{color:#ff5f8f}.sub{color:#a07a3a;margin:6px 0 14px;font-size:15px;font-weight:600}#island{min-height:18px;margin-bottom:12px;font-size:14px}#enter{color:#fff;cursor:pointer;background:linear-gradient(#ffb52e,#ff8a00);border:none;border-radius:40px;width:100%;padding:14px 34px;font:800 22px system-ui;box-shadow:0 4px #c96a00}#enter:disabled{box-shadow:none;background:#aaa}.row{flex-wrap:wrap;justify-content:center;gap:8px;margin-top:12px;display:flex}.row button{color:#5a3b00;cursor:pointer;background:#fff;border:2px solid #ffd27a;border-radius:14px;flex:110px;padding:9px 8px;font:700 13px system-ui}#msg{color:#2f9a3a;min-height:18px;margin-top:10px;font-size:13px;font-weight:700}#msg.bad{color:#d9453a}#hud{text-align:left;color:#8a6a3a;margin-top:10px;font-size:12px}#hud summary{cursor:pointer;font-weight:700}#hud ul{margin:6px 0 0;padding-left:18px}#comfort button.on{color:#fff;background:#ff8a00}.note{opacity:.8;max-width:320px;margin:4px 0 8px;font-size:12px}#mini{cursor:pointer;color:#c9a060;background:0 0;border:none;font-size:18px;position:absolute;top:8px;right:10px}</style>
+  <script type="module" crossorigin src="/kokoro-yn1na7b/assets/index-BbTDUZNq.js"></script>
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/three.core-DvL2bP4p.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/textures-CyGpUsU2.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/clothes-Cn3J_84i.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/foods-CbmOq-_0.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/designs-jULMdUao.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/styles-CAW0GrHM.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/settings-ChY94cn4.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/daynight-BR8g_fER.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/newstv-BGvPpSVt.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/decor-RWsAexTq.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/decortex-DO8cKyNe.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/BufferGeometryUtils-BhDU71b5.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/merge-Ca5jha4X.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/dispose-B11ubnYC.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/shadows-BENtEPs5.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/food-CytgA3oT.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/island-CWf2UCgK.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/hats-Xz1Eiy4G.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/appearance-BQ390jOy.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/mii-rnMpGKGd.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/GLTFLoader-BTMwPy53.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/sfx-C2PQ93RI.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/treasures-8dv25e2Q.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/progress-BI6lE--x.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/relations-C8vTN9Uy.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/aim-kUx5jgFJ.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/clothing-BtkohEBX.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/fx-VvfP6H1x.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/room-CFsWwYt1.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/panel-BWWShGmG.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/resident-Lq_vhST0.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/voice-C5W7ZNEV.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/save-BEyZOis8.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/quirks-RYhiWG79.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/family-DZ3qU0EK.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/bubbles-CPsSo4WJ.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/actor-DPyAYioz.js">
+  <link rel="modulepreload" crossorigin href="/kokoro-yn1na7b/assets/viewer-DhDgQzbL.js">
+</head>
+<body>
+  <div id="title">
+    <button id="mini" title="Hide / show">▾</button>
+    <div class="logo">Kokoro <span>Island</span></div>
+    <div class="sub">A cozy little island life, in VR</div>
+    <div id="island"></div>
+    <div class="row" id="comfort"><button id="cBeg">🌱 I'm new to VR</button><button id="cStd">🎮 Standard</button></div>
+    <div id="cNote" class="note"></div>
+    <button id="enter" disabled>Checking VR…</button>
+    <div class="row">
+      <button id="exp">💾 Save a backup</button>
+      <button id="imp">📂 Load a backup</button>
+      <button id="impmii">🧑 Add a shared Mii</button>
+    </div>
+    <div id="msg"></div>
+    <details id="hud"><summary>VR check &amp; credits</summary><ul id="checks"></ul>
+      <p style="margin:8px 0 0">Natural voices: Piper, voice model trained on LibriTTS-R (CC BY 4.0). Classic voice: eSpeak (GPL). Full list in docs/CREDITS.md.</p></details>
+  </div>
+  <input type="file" id="file" accept=".json,application/json" hidden />
+</body>
+</html>

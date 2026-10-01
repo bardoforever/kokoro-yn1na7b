@@ -1,0 +1,1 @@
+import{i as e}from"./decor-RWsAexTq.js";export{e as FURNITURE};

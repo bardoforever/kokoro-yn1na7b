@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kokoro Island · concept viewer</title>
+<style>
+  html,body{margin:0;height:100%;background:#1c1410;color:#fff;font:15px/1.4 system-ui,sans-serif;overflow:hidden}
+  #ui{position:fixed;left:16px;right:16px;bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;z-index:2}
+  button{font:600 16px system-ui;padding:12px 18px;border-radius:14px;border:0;background:#ff8a3d;color:#3a1a00}
+  #hint{background:#0008;padding:8px 12px;border-radius:10px}
+  select{font:15px system-ui;padding:10px;border-radius:10px}
+</style></head><body>
+<div id="ui"><button id="vr" hidden>Enter VR</button><select id="scene"></select><span id="hint">Drag to look around · in the headset, look around the room</span></div>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+// Stereo 360° panoramas of the concept scenes (top half = left eye, bottom half = right eye). Add more to SCENES.
+const SCENES = [{ name: 'Living room · eye height 1.3 m', file: '/concept/living-room-pano.jpg' }];
+const sel = document.getElementById('scene');
+SCENES.forEach((s, i) => sel.add(new Option(s.name, i)));
+const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setPixelRatio(devicePixelRatio); renderer.setSize(innerWidth, innerHeight);
+renderer.xr.enabled = true; document.body.prepend(renderer.domElement);
+const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 100);
+const rig = new THREE.Group(); rig.add(camera); scene.add(rig);
+function eyeSphere(layer) {
+  const g = new THREE.SphereGeometry(10, 96, 64); g.scale(-1, 1, 1);
+  const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setY(i, uv.getY(i) * 0.5 + (layer === 1 ? 0.5 : 0)); // 1 = left eye = top half
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial()); m.layers.set(layer); scene.add(m); return m;
+}
+const left = eyeSphere(1), right = eyeSphere(2);
+// each eye sees its own sphere in VR; the flat view uses the left picture
+camera.layers.enable(1);
+renderer.xr.addEventListener('sessionstart', () => { const cams = renderer.xr.getCamera().cameras; cams[0].layers.enable(1); cams[1].layers.enable(2); });
+function load(i) {
+  new THREE.TextureLoader().load(SCENES[i].file, (t) => {
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; left.material.map = right.material.map = t; left.material.needsUpdate = right.material.needsUpdate = true;
+  });
+}
+sel.onchange = () => load(+sel.value); load(0);
+let yaw = Math.PI / 2, pitch = 0, drag = null;
+addEventListener('pointerdown', (e) => { drag = [e.clientX, e.clientY]; });
+addEventListener('pointerup', () => { drag = null; });
+addEventListener('pointermove', (e) => { if (!drag) return; yaw += (e.clientX - drag[0]) * 0.005; pitch = Math.max(-1.4, Math.min(1.4, pitch + (e.clientY - drag[1]) * 0.005)); drag = [e.clientX, e.clientY]; });
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
+renderer.setAnimationLoop(() => { if (!renderer.xr.isPresenting) camera.rotation.set(pitch, yaw, 0, 'YXZ'); renderer.render(scene, camera); });
+if (navigator.xr) navigator.xr.isSessionSupported('immersive-vr').then((ok) => {
+  if (!ok) return; const b = document.getElementById('vr'); b.hidden = false;
+  b.onclick = async () => { const s = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor'] }); renderer.xr.setReferenceSpaceType('local'); await renderer.xr.setSession(s); };
+});
+</script></body></html>

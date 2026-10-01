@@ -1,0 +1,1 @@
+function e(e,t){if(!e.isMesh||e.isInstancedMesh||!e.visible)return!1;for(let n=e;n;n=n.parent){if(n.userData?.noBake||n!==t&&n.userData?.bakeUnit)return!1;if(n===t)break}let n=e.material;return!n||Array.isArray(n)||!n.isMeshStandardMaterial||n.transparent?!1:n.name!==`glass`&&n.name!==`windowView`}function t(t){let n=[];return t.traverse(r=>{e(r,t)&&n.push(r)}),n}export{t};

@@ -1,0 +1,1 @@
+import{Sr as e}from"./three.core-DvL2bP4p.js";var t=new e;export{t};
