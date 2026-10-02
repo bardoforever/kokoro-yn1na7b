@@ -297,9 +297,10 @@ function crowd(pt, self) {
   }
   return n;
 }
-function wander(a) {
+function wander(a, only = null) {
   if (a.res.age === 'baby') return null;
   const w = placeWeights(a);
+  if (only) for (const k of Object.keys(w)) if (!only.includes(k)) delete w[k];
   if (a.__place) w[a.__place] *= 0.25;             // not the same kind of place twice in a row
   const keys = Object.keys(w); let total = keys.reduce((s, k) => s + w[k], 0), r = Math.random() * total, kind = keys[0];
   for (const k of keys) { if ((r -= w[k]) <= 0) { kind = k; break; } }
@@ -340,8 +341,8 @@ function steer(a, dir, remaining) {
   const me = a.root.position, mine = { x: 0, z: 0 }, pl = { x: 0, z: 0 };
   for (const b of actors()) {
     if (b === a || b.asleep) continue;
-    if (a.social && b.social && (a.social.partner === b || b.social.partner === a)) continue; // walking up to a chat partner
-    avoid(me, dir, b.root.position.x, b.root.position.z, 0.7, 1.4, mine);
+    const partner = a.social && b.social && (a.social.partner === b || b.social.partner === a);
+    avoid(me, dir, b.root.position.x, b.root.position.z, partner ? 0.45 : 0.7, partner ? 0.6 : 1.4, mine);   // partners keep a small personal space
   }
   const pp = playerPos(); avoid(me, dir, pp.x, pp.z, 1.15, 2.6, pl);
   const px = mine.x * 0.9 + pl.x * 1.5, pz = mine.z * 0.9 + pl.z * 1.5;
@@ -589,8 +590,11 @@ function greetLine(a) {
   if (hour() >= 19) return any([`Good evening!`, `Out for an evening stroll?`]);
   return v.loud ? any([`Hey, it's you!`, `Hiii! Over here!`, `Oh! Hello hello!`]) : v.quiet ? any([`...Oh, hi.`, `Hello.`]) : any([`Oh, hi!`, `Hello there!`, `Nice day, huh?`]);
 }
+let nextNotice = 0;
+const sayFresh = (a, text, emote, d) => { recentSaid.unshift(text); recentSaid.length = Math.min(recentSaid.length, 60); a.chatSay?.(text, emote, d); };
 function notice(a, now) {
-  a.__noticeAt = now + 45000 + Math.random() * 45000;
+  a.__noticeAt = now + 180000 + Math.random() * 120000;   // each Mii: every 3-5 min
+  nextNotice = now + 25000 + Math.random() * 15000;       // island: one greeting per 25-40 s
   const v = voice(a), friendly = !a.res.mood && a.res.problem?.type !== 'sad';
   // chatty, friendly Miis sometimes come over to say hi
   if (friendly && Math.random() < (v.loud ? .45 : .2)) {
@@ -602,34 +606,36 @@ function notice(a, now) {
     spot.y = ground(spot.x, spot.z);
     a.socialGo?.(spotTarget(new V(p.x, 0, p.z)), spot, () => {
       a.emote?.(v.hyper ? 'hopwave' : 'wave', 1.8);
-      a.chatSay?.(greetLine(a), 'talk', 2.6);
+      sayFresh(a, greetLine(a), 'talk', 2.6);
       setTimeout(() => { if (a.social?.partner?.root) a.socialEnd?.(); }, 3200);
     });
     return 'came over';
   }
   a.emote?.(v.hyper ? 'hopwave' : 'wave', 1.6);
-  a.chatSay?.(greetLine(a), 'talk', 2.4);
+  sayFresh(a, greetLine(a), 'talk', 2.4);
   return 'greeted';
 }
 // friends sometimes head off somewhere together after a nice chat
 function walkTogether(c) {
   const { a, b } = c; if (!a || !b || a.asleep || b.asleep) return;
-  const dest = wander(a); if (!dest) return;
+  const dest = wander(a, ['plaza', 'bench', 'park', 'beach', 'shops']); if (!dest) return;
   const kind = a.__place;
   const side = new V().crossVectors(dest.clone().sub(a.root.position).setY(0).normalize(), new V(0, 1, 0)).multiplyScalar(0.75);
   const da = dest.clone(), db = dest.clone().add(side); db.y = ground(db.x, db.z);
-  const where = { plaza: 'the plaza', bench: 'the bench', park: 'the park', beach: 'the beach', shops: 'the shops', garden: 'my place', friend: 'see our friends', stroll: 'a walk' }[kind] ?? 'a walk';
-  const verb = where === 'a walk' || where === 'see our friends' ? (where === 'a walk' ? 'go for a walk' : 'go see our friends') : `go to ${where}`;
+  const verb = { plaza: 'hang out at the plaza', bench: 'sit on the bench for a bit', park: 'go to the park', beach: 'go to the beach', shops: 'check out the shops' }[kind] ?? 'go for a walk';
+  if (a.social || b.social || a.busy || b.busy) return;
+  // hold both together while they decide, so nothing else grabs them
+  a.socialGo?.(b, a.root.position.clone(), null); b.socialGo?.(a, b.root.position.clone(), null);
+  a.chatSay?.(`Want to ${verb}?`, 'talk', 2.2);
   setTimeout(() => {
-    if (a.social || b.social || a.busy || b.busy) return;
-    a.chatSay?.(`Want to ${verb}?`, 'talk', 2.2);
-    setTimeout(() => {
-      if (a.social || b.social) return;
-      b.chatSay?.(any([`Sure, let's go!`, `Good idea!`, `Lead the way!`]), 'happy', 2);
-      let arrived = 0; const done = () => { if (++arrived < 2) return; setTimeout(() => { a.socialEnd?.(); b.socialEnd?.(); a.__place = b.__place = kind; }, 1500); };
-      a.socialGo?.(b, da, done); b.socialGo?.(a, db, done);
-    }, 1400);
-  }, 600);
+    const release = () => { if (a.social?.partner === b) a.socialEnd?.(); if (b.social?.partner === a) b.socialEnd?.(); };
+    if (a.social?.partner !== b || b.social?.partner !== a) { release(); return; }   // something else took over
+    setTimeout(release, 30000);                                                   // never leave anyone waiting
+    b.chatSay?.(any([`Sure, let's go!`, `Good idea!`, `Lead the way!`]), 'happy', 2);
+    a.socialEnd?.(); b.socialEnd?.();
+    let arrived = 0; const done = () => { if (++arrived < 2) return; setTimeout(() => { if (a.social?.partner === b) a.socialEnd?.(); if (b.social?.partner === a) b.socialEnd?.(); a.__place = b.__place = kind; }, 1500); };
+    a.socialGo?.(b, da, done); b.socialGo?.(a, db, done);
+  }, 1400);
 }
 // watch new chats so friendly ones can end in a walk together
 {
@@ -669,7 +675,7 @@ function walkTogether(c) {
         mover.socialGo?.(spotTarget(look), spot, () => setTimeout(() => { mover.__shuffling = false; if (mover.social?.partner?.root && !mover.social.partner.res) mover.socialEnd?.(); }, 400));
         setTimeout(() => { mover.__shuffling = false; }, 6000);
       }
-      for (const a of actors()) {
+      for (const a of now < nextNotice ? [] : actors()) {
         if (!free(a) || (a.__noticeAt ?? 0) > now) continue;
         const d = Math.hypot(a.root.position.x - p.x, a.root.position.z - p.z);
         if (d < 4 && d > 0.8) { notice(a, now); break; }   // one Mii at a time
@@ -679,5 +685,6 @@ function walkTogether(c) {
   };
 }
 
+window.__klInternal = () => ({ nextNotice });
 window.__kl = { gather, frontSpot, pickWant, wander, dwell, steer, chat, fightLines, introLines, bubbleScale, audience, react, formation, notice, walkTogether };
 console.info('[kokoro-life] loaded');

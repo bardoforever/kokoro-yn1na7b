@@ -258,3 +258,30 @@ add-on into the source and turn each hook into a direct call.**
   beach?" / "Sure, let's go!", and the pair walks side by side to that spot.
 - **Goodbyes:** every relationship tier except exes ends a chat with a wave,
   and the listener waves back.
+- **No standing on someone:** wander targets reject any spot within 0.8 m of
+  another Mii (or of where one is heading) or within 1 m of the player. If two
+  idle Miis still overlap, the newer arrival shuffles a step aside.
+- **Greeting rate:** at most one greeting every 25–40 s island-wide, and each
+  Mii greets at most every 3–5 min, never repeating a recent line. (Before
+  tuning it was every ~13 s at the plaza.)
+- **Walking together** goes only to shared places (plaza, bench, park, beach,
+  shops). The pair is held together while one asks and the other answers, so
+  nothing else grabs them. A safety release after 30 s means nobody is left
+  waiting.
+
+### Verified (round 3)
+- Player standing at the busy plaza for 10 game minutes:
+
+  | | Before | After |
+  |---|---|---|
+  | Miis walking through the player | 7 | 0 |
+  | Closest pass | 0.03 m | 0.70 m |
+  | Mii-to-Mii overlap samples | 2619 | 28 |
+  | Areas visited | 38 | 80 |
+
+- Filmed chats show both faces (3/4 toward the player). The dance party is a
+  line of four facing the player.
+- Regression: all 16 debug actions pass in 1–6 s; all 19 scenes finish; 21
+  chats in 15 min (6.5 lines each, 99 distinct of 137); problems curious,
+  judge, fight, lingo, pet, sad, photo and meet (carried by hand) all resolve;
+  0 page errors.
