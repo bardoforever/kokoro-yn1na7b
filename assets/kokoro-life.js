@@ -159,6 +159,32 @@ setRun('crush', () => {
 });
 setRun('moodbad', () => { const pair = gather(2); if (pair.length < 2) return 'Needs 2 awake adults'; G.social.badMood(pair[0], pair[1]); return `${pair[0].name} is in a bad mood`; });
 
+// Remove a Mii: tap once to pick, tap again within 4 s to confirm.
+const confirmRm = { id: null, who: null, t: 0 };
+function removeEntry(id, label, choose) {
+  return {
+    id, group: 'Island',
+    label: () => confirmRm.id === id && Date.now() - confirmRm.t < 4000 ? `❌ Tap again to remove ${confirmRm.who?.name}` : label,
+    run: () => {
+      if (confirmRm.id === id && Date.now() - confirmRm.t < 4000 && confirmRm.who && actors().includes(confirmRm.who)) {
+        const a = confirmRm.who; confirmRm.id = null;
+        game.removeResident(a); game.saveNow?.(); game.changed?.();
+        return `${a.name} moved off the island`;
+      }
+      const a = choose(); if (!a) return 'No Miis to remove';
+      Object.assign(confirmRm, { id, who: a, t: Date.now() });
+      a.emote?.('surprised', 2);
+      return `Remove ${a.name}? Tap again within 4 seconds to confirm`;
+    },
+  };
+}
+{
+  const list = G.cheats.list, at = list.findIndex(c => c.id === 'spawn3') + 1 || list.length;
+  list.splice(at, 0,
+    removeEntry('rm_near', '❌ Remove nearest Mii', () => { const p = playerPos(); return [...actors()].sort((a, b) => a.root.position.distanceTo(p) - b.root.position.distanceTo(p))[0]; }),
+    removeEntry('rm_new', '❌ Remove newest Mii', () => [...actors()].sort((a, b) => (b.res.createdAt ?? 0) - (a.res.createdAt ?? 0))[0]));
+}
+
 // ---------------------------------------------------------------------------
 // 2. Variety: every Mii asks for things that suit it, without repeating
 // ---------------------------------------------------------------------------

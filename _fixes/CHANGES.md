@@ -212,3 +212,11 @@ add-on into the source and turn each hook into a direct call.**
   Partners are weighted toward nearby Miis (was anyone within 30 m), and a
   Mii next to a stranger may introduce itself (40%). Verified: everyday chats
   per 15 minutes went from 8 to 18.
+
+## F19 — Remove a Mii from the debug menu
+- New debug buttons (Island group): **❌ Remove nearest Mii** and
+  **❌ Remove newest Mii**. The first tap names the Mii and asks; a second tap
+  within 4 s removes it via the game's own `removeResident` (relationships,
+  family links and problems pointing at it are cleaned up). It's saved, so the
+  Mii stays gone after a reload. (The tablet's Residents page also has a
+  goodbye button with a confirm step.)
