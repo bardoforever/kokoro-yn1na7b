@@ -141,3 +141,74 @@ against the game's own hover state, hand grabs, fingertip touches):
 byte-identical files. Each patch aborts if its target text isn't found exactly
 once, so a rebuilt bundle with different minified names fails loudly rather
 than patching the wrong place.
+
+---
+
+# Round 2 — behaviour overhaul (assets/kokoro-life.js)
+
+The new behaviour lives in one readable add-on, `assets/kokoro-life.js`, loaded
+after the main bundle. It hooks the game's public objects (`window.__game`);
+the minified bundles only gained small `window.__kl?.…` hooks, which fall back
+to the original behaviour if the add-on isn't loaded. **To port: copy the
+add-on into the source and turn each hook into a direct call.**
+
+## F15 — Debug menu acts near the player, at once, and reports honestly
+- **Bug:** debug actions picked random Miis anywhere on the island (often far
+  away or indoors) and said "Playing: dance" straight away while the Miis
+  still had a 15–40 s walk. Problem buttons put bubbles on Miis the player
+  couldn't see. "Marry a couple" only changed data.
+- **Fix:** `gather(n)` takes the nearest awake, free Miis and brings anyone
+  further than 4.5 m to a spot in front of the player. Scenes tied to a place
+  (picnic, beach, bench, fountain) take the player there. "Marry" runs the
+  real wedding at the plaza. "Accident: stuck" takes the player to the beach.
+  Messages only claim what actually happened. Verified: every action happens
+  within 1–6 s, in view.
+- Hook: `actor` passes the asking Mii to `game.wantPool(l)` (merged into F2).
+
+## F15b — Requests suit each Mii and don't repeat
+- **Bug:** food wants were a uniform pick from everything stocked or sold,
+  ignoring the Mii's tastes and history, so the same dish came up over and
+  over. Minigame invites were uniform too.
+- **Fix:** `wantPool(res)` weighs loves ×10, likes ×4, never hates, damps
+  what this Mii asked for recently and what another Mii is asking for now.
+  Invites use per-personality favourite games and avoid what was just played.
+
+## F16 — Movement
+- **Bugs:** wander targets were a ring at one plaza point (everyone bunched
+  up) or a 5 m strip in front of the Mii's own house (pacing), with 2–6 s
+  pauses. Walkers went through each other and the player. A gesture started
+  before walking kept playing while moving (sliding). Any walker within 2.2 m
+  of the player stopped dead in front of them. A Mii whose bubble was poked
+  but not solved stood still forever.
+- **Fix:** add-on `wander()` picks a place by personality (plaza, bench,
+  park, beach, shops when hungry, own garden, a friend, a stroll), never the
+  same kind twice in a row, choosing the least crowded spot; `dwell()` gives
+  each place its own stay (bench 15–32 s, beach 18–40 s…); `steer()` bends
+  the walk around nearby Miis and the player (not during the final approach).
+  Bundle hooks: `et()` wander, idle `j` dwell, the walk step, `N` reset on
+  walk start, greet-without-blocking, and a 45 s `askedAt` timeout.
+- Verified: 10 minutes went from 41 to 93 distinct areas visited, with no
+  Mii frozen for over a minute.
+
+## F17 — Conversations
+- **Bug:** every chat was a greeting, one of 6 topics and a one-line reply,
+  with only two tones (strangers vs everyone else). There was no memory and no
+  mood, and lines repeated.
+- **Fix:** add-on `chat(a, b)`:
+  - Tone by relationship tier: stranger, new, friend, best friend
+    (level ≥ 5), sweetheart, spouse, family, ex.
+  - Voice from personality: loud, quiet, hyper, calm, smart.
+  - 1–3 beats picked by weight: shared memories, island gossip (from
+    `game.news`), food the player fed them (`discoverTaste`), new outfits
+    (`dress`), hunger, sadness, grumpiness, wants, place, rain, time of day,
+    food likes and dislikes with agreeing or clashing replies, taught words
+    (lingo), personality, and relationship flavour.
+  - Per-pair topic history and island-wide line freshness prevent repeats.
+- The fight and intro lines are hooked too. Verified over 15 minutes: 6.7
+  lines per chat, 87 distinct lines out of 121.
+
+## F18 — More, and more natural, chats
+- Up to one chat per four Miis can run at once (was 2 island-wide).
+  Partners are weighted toward nearby Miis (was anyone within 30 m), and a
+  Mii next to a stranger may introduce itself (40%). Verified: everyday chats
+  per 15 minutes went from 8 to 18.

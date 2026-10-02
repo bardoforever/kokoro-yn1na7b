@@ -12,6 +12,8 @@ import pathlib, sys
 ASSETS = pathlib.Path(__file__).resolve().parent.parent / "assets"
 
 def find(prefix):
+    if prefix.endswith(".html"):
+        return ASSETS.parent / prefix
     # tiny re-export stubs share the prefix; the real bundle is the big one
     hits = [h for h in sorted(ASSETS.glob(prefix + "-*.js")) if h.stat().st_size > 500]
     if len(hits) != 1:
@@ -44,7 +46,8 @@ patch("resident", "F1 lively normal pacing defaults",
 # Only start a new want while fewer than a quarter of Miis have a problem.
 patch("actor", "F2 cap simultaneous problems",
       "{pool:k===`sleep`||l.age===`baby`?null:h.wantPool?.()}",
-      "{pool:k===`sleep`||l.age===`baby`||h.actors.filter(e=>e.res.problem).length>=Math.max(1,Math.ceil(h.actors.length/4))?null:h.wantPool?.()}")
+      # (also passes the asking Mii to wantPool for F15, which edits the same spot)
+      "{pool:k===`sleep`||l.age===`baby`||h.actors.filter(e=>e.res.problem).length>=Math.max(1,Math.ceil(h.actors.length/4))?null:h.wantPool?.(l)}")
 
 # --- F3 autonomous life cadence -----------------------------------------------
 # Group scenes started every 25-50 min at normal pacing. Every 2.5-5 min now.
@@ -193,6 +196,67 @@ patch("birthdays", "F14 party remembers how to end",
 patch("birthdays", "F14 party ends itself after 3 min",
       "update(e){if(v-=e,v>0)return;v=10;let t=new Date(c())",
       "update(e){if(y&&y.__partyEnd&&(y.__partyT=(y.__partyT??0)+e)>180){let t=y.__partyEnd;y.__partyEnd=null,t()}if(v-=e,v>0)return;v=10;let t=new Date(c())")
+
+# --- F15 kokoro-life add-on ----------------------------------------------------
+# Readable gameplay add-on (assets/kokoro-life.js): debug menu that acts near
+# the player and reports honestly, per-Mii tastes for requests. Two hooks:
+# (F15 wantPool(l) hook is applied together with F2 above)
+patch("index.html", "F15 load the add-on",
+      '<script type="module" crossorigin src="/kokoro-yn1na7b/assets/index-BbTDUZNq.js"></script>',
+      '<script type="module" crossorigin src="/kokoro-yn1na7b/assets/index-BbTDUZNq.js"></script>\n  <script type="module" src="/kokoro-yn1na7b/assets/kokoro-life.js"></script>')
+
+# --- F16 movement hooks (behaviour lives in kokoro-life.js) -------------------
+# Wander targets were a ring at one plaza point (everyone bunched up) or a
+# 5 m strip in front of the Mii's own house (pacing), with 2-6 s pauses.
+patch("actor", "F16 wander hook",
+      "function et(e){",
+      "function et(e){let __w=e===`out`&&window.__kl?.wander?.($);if(__w)return __w;")
+patch("actor", "F16 dwell hook",
+      "k=`idle`,j=2+Math.random()*4,",
+      "k=`idle`,j=window.__kl?.dwell?.($)??2+Math.random()*4,")
+# Walkers went in straight lines through each other and the player.
+patch("actor", "F16 steering hook",
+      "b.position.addScaledVector(r,Math.min(t,Se*",
+      "window.__kl?.steer?.($,r,t),b.position.addScaledVector(r,Math.min(t,Se*")
+# A gesture started before walking kept playing while moving (sliding).
+patch("actor", "F16 stop gestures when walking",
+      "M.push(e),k=`walk`}",
+      "M.push(e),k=`walk`,N=Math.min(N,.2)}")
+# Any walker within 2.2 m of the player stopped dead in front of them. Only
+# pause for the actual greeting.
+patch("actor", "F16 greet without blocking",
+      "t&&!P&&(k=`idle`,j=3)",
+      "t&&!P&&Pe>43&&(k=`idle`,j=1.6)")
+# A Mii whose bubble was poked but not solved stood still forever.
+patch("actor", "F16 poked Miis get on with their day",
+      "l.problem.asked=!0,",
+      "l.problem.asked=!0,l.problem.askedAt=Date.now(),")
+patch("actor", "F16 asked timeout",
+      "!l.problem?.asked&&!P&&K(et(n))",
+      "!(l.problem?.asked&&Date.now()-(l.problem.askedAt??0)<45e3)&&!P&&K(et(n))")
+
+# --- F17 conversation hooks (lines come from kokoro-life.js) -----------------
+# Every chat was greeting + one of 6 topics + a one-line reply, with only two
+# tones. The add-on builds relationship/mood/memory-aware conversations.
+patch("social", "F17 chat lines hook",
+      "e.lines=ie(e.a,e.b,t);",
+      "e.lines=window.__kl?.chat?.(e.a,e.b,t)??ie(e.a,e.b,t);")
+patch("social", "F17 fight lines hook",
+      "e.lines=[...e.lines.slice(0,2),[e.a,`Hey, that was MY idea!`],[e.b,`No way! It was mine!`]]",
+      "e.lines=[...e.lines.slice(0,2),...(window.__kl?.fightLines?.(e.a,e.b)??[[e.a,`Hey, that was MY idea!`],[e.b,`No way! It was mine!`]])]")
+patch("social", "F17 intro lines hook",
+      "if(e.intro)e.lines=[[e.a,`Oh! Hi there. I'm ${e.a.name}.`],[e.b,`Nice to meet you! I'm ${e.b.name}!`],[e.a,`Let's be friends!`]];",
+      "if(e.intro)e.lines=window.__kl?.introLines?.(e.a,e.b)??[[e.a,`Oh! Hi there. I'm ${e.a.name}.`],[e.b,`Nice to meet you! I'm ${e.b.name}!`],[e.a,`Let's be friends!`]];")
+
+# --- F18 more, and more natural, chats ------------------------------------------
+# Only 2 chats could run island-wide, partners were picked from up to 30 m away
+# regardless of distance, and strangers never introduced themselves.
+patch("social", "F18 chat capacity",
+      "if(e.length<2||w.length>=2||Z(e)||de(e))return;",
+      "if(e.length<2||w.length>=Math.max(2,Math.ceil(M().length/4))||Z(e)||de(e))return;")
+patch("social", "F18 nearby partners and self-introductions",
+      "e.root.position.distanceTo(t.root.position)<30);if(!n.length)return;let r=n.map(e=>10+(s(C,t.res.id,e.res.id).f[t.res.id]??0)),",
+      "e.root.position.distanceTo(t.root.position)<22);if(!n.length){let u=e.find(e=>e!==t&&!m(C,t.res.id,e.res.id)&&e.root.position.distanceTo(t.root.position)<6);u&&Math.random()<.4&&F(t,u,{intro:!0});return}let r=n.map(e=>(10+(s(C,t.res.id,e.res.id).f[t.res.id]??0))/(1+e.root.position.distanceTo(t.root.position)/6)),")
 
 def main():
     changed = {}
