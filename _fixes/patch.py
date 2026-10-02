@@ -106,7 +106,8 @@ patch("talkpanels", "F6 lingo panel guard",
 # living its life.
 patch("actor", "F7 level-up does not freeze Mii",
       "&&!P&&!Y&&l.rewardsPending!==1&&q()!==`sleep`}",
-      "&&!P&&!Y&&q()!==`sleep`}")
+      # (also carries the F13 ceremony lock, which edits the same spot)
+      "&&!P&&!Y&&!(l.ceremony>Date.now())&&q()!==`sleep`}")
 
 # --- F8 fight dialog said "It was about undefined." ---------------------------
 patch("talkpanels", "F8 fight topic fallback",
@@ -131,6 +132,67 @@ patch("actor", "F9 livelier daily schedule",
 patch("cheats", "F10 debug scenes recruit awake Miis",
       "H=e=>{let t=R(),n=x.find(t=>t.id===e);",
       "H=e=>{let t=R(),n=x.find(t=>t.id===e);n&&t.length<n.n&&(t=I().filter(e=>!e.busy&&!e.asleep&&!e.social&&!e.accident&&!e.res.age));")
+
+# --- F11 minigames: no way out, and rare invites ----------------------------
+# A running minigame had no quit, time limit or walk-away check. Leaving a
+# game like Bowling (which waits for throws) kept the Mii stuck forever and
+# blocked every other invite. Walking 8 m+ away for 6 s now ends it.
+patch("host", "F11 walk away ends a minigame",
+      "S&&!S.over&&!R.paused&&(S.t+=e,x[S.id].update(S.state,e)),",
+      "S&&!S.over&&!R.paused&&(S.t+=e,x[S.id].update(S.state,e)),S&&!S.over&&S.frame&&(S.away=S.frame.getWorldPosition(new n).distanceTo(h.getWorldPosition(new n))>8?(S.away??0)+e:0,S.away>6&&(S.quit=!0,S.actor.chatSay?.(`Aww... let's play later!`,`sad`,2.4),R.finish(!1))),")
+# Walking away is a quiet cancel: no "Hehe, I win!" and no junk prize box.
+patch("host", "F11 walk-away skips the loss gloat and junk prize",
+      ":(r.chatSay?.([`Hehe, I win! Let's play again sometime!`",
+      ":S.quit?r.handleEvents?.(f(r.res,4)):(r.chatSay?.([`Hehe, I win! Let's play again sometime!`")
+# Miis invited the player to a minigame once every 50 min at normal pacing.
+patch("host", "F11 invite cadence",
+      "R._t=T()?70+Math.random()*60:3e3",
+      "R._t=T()?70+Math.random()*60:360+Math.random()*360")
+# Accidents (stuck / frozen / hiccups) every 40-100 min -> every 15-30 min.
+patch("events", "F11 accident cadence",
+      "s=o()?90+Math.random()*90:2400+Math.random()*60*60",
+      "s=o()?90+Math.random()*90:900+Math.random()*900")
+
+# --- F12 bowling ball rolled backwards and could never hit a pin -------------
+# Object3D.localToWorld() mutates its argument. The roll update converted the
+# lane-local ball position r to world space in place and kept using r as
+# lane-local: the ball snapped to the gutter, raced backwards at ~24 m/s, and
+# the pin hit test read world coordinates, so no pin ever fell.
+patch("action", "F12 bowling: floor clamp uses a copy",
+      "r.y<.1&&(r.y=.1,e.ball.position.copy(e.lane.localToWorld(r))),",
+      "r.y<.1&&(r.y=.1,e.ball.position.copy(e.lane.localToWorld(r.clone()))),")
+patch("action", "F12 bowling: gutter clamp uses a copy",
+      "Math.abs(r.x)>.44&&(r.x=Math.sign(r.x)*.44,e.ball.position.copy(e.lane.localToWorld(r)))",
+      "Math.abs(r.x)>.44&&(r.x=Math.sign(r.x)*.44,e.ball.position.copy(e.lane.localToWorld(r.clone())))")
+
+# --- F13 weddings never completed ---------------------------------------------
+# Between "YES!" and the wedding there was a 2.8 s gap where the couple counted
+# as free, so the auto-chat grabbed them ("Oh, hi Sam!"). When that small talk
+# ended it released them from the wedding script, the vows got interleaved with
+# chit-chat, and the line that marries them never ran. Lock the couple for the
+# ceremony (expires after 60 s so nobody can get stuck) and drop stray chats.
+patch("proposal", "F13 lock couple after YES",
+      "e?(setTimeout(()=>{k.script(t,n,[[t,`${n.name}... will you marry me?`",
+      "e?(t.res.ceremony=n.res.ceremony=Date.now()+6e4,setTimeout(()=>{k.script(t,n,[[t,`${n.name}... will you marry me?`")
+patch("proposal", "F13 wedding drops stray chats",
+      "function X(e,t){let n=new a(4,.1,13.6),",
+      "function X(e,t){e.res.ceremony=t.res.ceremony=Date.now()+6e4;for(let n of k.chats.filter(n=>[n.a,n.b].some(n=>n===e||n===t)))k.chats.splice(k.chats.indexOf(n),1);let n=new a(4,.1,13.6),")
+patch("proposal", "F13 unlock after wedding",
+      "()=>{for(let n of[e,t])n.handleEvents(x(n.res,50));",
+      "()=>{e.res.ceremony=t.res.ceremony=0;for(let n of[e,t])n.handleEvents(x(n.res,50));")
+# (F13 ceremony lock in `available` is applied together with F7 above)
+
+# --- F14 birthday party froze the whole island ---------------------------------
+# A party gathers every awake Mii at the plaza and only ended when the player
+# grabbed the present. If the player never went (indoors, didn't notice, took
+# the headset off) every Mii stayed at the party forever. After 3 minutes the
+# birthday Mii opens the present and everyone heads off.
+patch("birthdays", "F14 party remembers how to end",
+      "m.grabbables.push(r);let i=m.actors.filter(",
+      "m.grabbables.push(r),e.__partyT=0,e.__partyEnd=()=>r.grab();let i=m.actors.filter(")
+patch("birthdays", "F14 party ends itself after 3 min",
+      "update(e){if(v-=e,v>0)return;v=10;let t=new Date(c())",
+      "update(e){if(y&&y.__partyEnd&&(y.__partyT=(y.__partyT??0)+e)>180){let t=y.__partyEnd;y.__partyEnd=null,t()}if(v-=e,v>0)return;v=10;let t=new Date(c())")
 
 def main():
     changed = {}

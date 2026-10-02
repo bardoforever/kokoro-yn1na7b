@@ -77,3 +77,67 @@ hand-feeding tests.
 ## F10 — Debug scene buttons ("Needs 4 free Miis")
 - When there aren't enough fully free Miis, the debug scene buttons now
   recruit any awake Mii that isn't busy, in a chat or in an accident.
+
+## F11 — Minigames had no way out, and invites were rare
+- **Bug:** a running minigame had no quit, time limit or walk-away check. A
+  game that waits for the player (Bowling waits for two throws) kept the Mii
+  stuck forever and blocked every other invite.
+- **Fix (host `update`):** if the player is more than 8 m from the game frame
+  for 6 s, set `S.quit`, have the Mii say "Aww... let's play later!" and
+  `finish(false)`. The loss branch skips the "Hehe, I win!" gloat and the
+  junk prize box when `S.quit` is set.
+- Auto-invites at normal pacing: every 50 min → **every 6–12 min**.
+- Accidents at normal pacing: every 40–100 min → **every 15–30 min**
+  (events `update`).
+
+## F12 — The bowling ball rolled backwards and never hit a pin
+- **Bug:** `Object3D.localToWorld()` changes its argument. The roll update did
+  `ball.position.copy(lane.localToWorld(r))` and then kept using `r` as a
+  lane-local position. Once the ball touched the floor it snapped to the
+  gutter, raced backwards at ~24 m/s, and the pin hit test read world
+  coordinates, so no pin could ever fall.
+- **Fix:** both clamps use `lane.localToWorld(r.clone())`. Verified: the
+  first throw knocked down 9 pins.
+
+## F13 — Weddings never finished
+- **Bug:** between "YES! Of course I will!" and the wedding there was a 2.8 s
+  gap where the couple counted as `available`, so the auto-chat grabbed them
+  ("Oh, hi Sam!"). When that small talk ended it released them from the
+  wedding script. The vows got mixed in with chit-chat, and the line that
+  marries them never ran, so they stayed sweethearts.
+- **Fix:** on "YES", `res.ceremony = now + 60 s` for both Miis; `available`
+  is false while `ceremony > now`, and the lock expires on its own. The wedding
+  (`X`) removes any chats involving the couple before its script starts, and
+  clears the lock when it finishes. Verified: the vows play cleanly and the
+  news reads "Otto and Kai got married!", with the relation now `spouse`.
+
+## F14 — A birthday party froze the whole island
+- **Bug:** a party gathers every awake Mii at the plaza and only ends when the
+  player grabs the present. If the player never went (indoors, didn't notice,
+  took the headset off) every Mii stayed at the party forever.
+- **Fix:** if the present isn't grabbed within 3 minutes, the birthday Mii
+  opens it (same rewards) and everyone goes back to their day.
+
+---
+
+## Verified working (no change needed)
+Tested through real VR input in the Quest 3 emulator (laser clicks confirmed
+against the game's own hover state, hand grabs, fingertip touches):
+- All 20 problem types: hungry, want, sad (head pat), curious, judge, photo
+  (camera), meet (carry by hand), fight, lingo (typed answer), apology,
+  getback, breakup, roommate, love, propose, baby, play, trip, souvenir, pet.
+- All 19 scenes run start to finish and release their Miis.
+- All 10 minigames start from a real invite and end (Odd One Out, Shadow,
+  Pixel, Coin, Cups, Match, No Repeats, Sky Wheel, Red Light, Bowling).
+- Romance (crush → confess → date → sweethearts), proposal dodge game →
+  wedding, baby → naming → grow up, trip → ferry → souvenir, level-up reward,
+  night sleep and dreams.
+- Tablet: every page opens and scrolls; God view, camera, Mii edit, island
+  book, builder, shop buying, dressing a Mii, placing furniture.
+- Save → reload restores the same island.
+
+## Re-applying
+`python3 _fixes/patch.py` applied to a clean copy of the original build gives
+byte-identical files. Each patch aborts if its target text isn't found exactly
+once, so a rebuilt bundle with different minified names fails loudly rather
+than patching the wrong place.
