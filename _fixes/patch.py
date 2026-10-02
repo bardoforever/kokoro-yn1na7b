@@ -258,6 +258,28 @@ patch("social", "F18 nearby partners and self-introductions",
       "e.root.position.distanceTo(t.root.position)<30);if(!n.length)return;let r=n.map(e=>10+(s(C,t.res.id,e.res.id).f[t.res.id]??0)),",
       "e.root.position.distanceTo(t.root.position)<22);if(!n.length){let u=e.find(e=>e!==t&&!m(C,t.res.id,e.res.id)&&e.root.position.distanceTo(t.root.position)<6);u&&Math.random()<.4&&F(t,u,{intro:!0});return}let r=n.map(e=>(10+(s(C,t.res.id,e.res.id).f[t.res.id]??0))/(1+e.root.position.distanceTo(t.root.position)/6)),")
 
+# --- F20 speech bubbles filled the screen ----------------------------------------
+# The bubble's scale was clamp(1, d*tan12/.36, d*tan19/.36): it always covered
+# 27-42 degrees of view whatever the distance, so a few talking Miis (even far
+# away) filled the screen. The add-on sizes it like a real object instead.
+patch("actor", "F20 bubble scale hook",
+      "S.mesh.scale.setScalar(o.clamp(1,ne*Ce/.36,ne*we/.36)*S.pop",
+      "S.mesh.scale.setScalar((window.__kl?.bubbleScale?.(ne)??o.clamp(1,ne*Ce/.36,ne*we/.36))*S.pop")
+
+# --- F21 interaction staging ------------------------------------------------------
+# Chat partners both walked to a midpoint and faced each other dead-on (the
+# player mostly saw backs of heads), listeners stood frozen while the other
+# spoke, and group performances circled around their centre.
+patch("social", "F21 one walks over, the other waits and waves; open stance",
+      "(e.socialGo(t,d.clone().sub(f),m),t.socialGo(e,d.clone().add(f),m))",
+      "(e.socialGo(t,t.root.position.clone().sub(f).sub(f),m,window.__kl?.audience?.(d)),t.socialGo(e,t.root.position.clone(),m,window.__kl?.audience?.(d)),t.emote?.(`wave`,1.4))")
+patch("social", "F21 listener reactions",
+      "n?t.chatSay(n,r??(o?`angry`:`talk`),i-.1):r&&t.emote(r,i),",
+      "n?(t.chatSay(n,r??(o?`angry`:`talk`),i-.1),window.__kl?.react?.(e,t,r??`talk`,i)):r&&t.emote(r,i),")
+patch("scenes", "F21 performances face the player",
+      "s=v(a.clone());return n.forEach((t,r)=>{let i=r/n.length*Math.PI*2+.6,c=n.length===1?0:.45+.1*n.length,l=a.clone().add(new e(Math.cos(i)*c,0,Math.sin(i)*c));t.socialGo(n.length===1?v(a.clone().add(new e(0,0,1.5))):s,l,()=>{o.arrived++})})",
+      "s=v(a.clone()),__f=window.__kl?.formation?.(i,n,a);return n.forEach((t,r)=>{let i=r/n.length*Math.PI*2+.6,c=n.length===1?0:.45+.1*n.length,l=__f?__f.spots[r]:a.clone().add(new e(Math.cos(i)*c,0,Math.sin(i)*c));t.socialGo(n.length===1?v(a.clone().add(new e(0,0,1.5))):__f?v(__f.face):s,l,()=>{o.arrived++})})")
+
 def main():
     changed = {}
     for bundle, name, old, new in PATCHES:

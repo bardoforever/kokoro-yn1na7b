@@ -277,6 +277,15 @@ function placeWeights(a) {
   };
 }
 const DWELL = { plaza: [8, 20], bench: [15, 32], park: [10, 24], beach: [18, 40], shops: [6, 14], garden: [6, 14], friend: [10, 22], stroll: [3, 8] };
+// is someone standing on, or heading to, this exact spot?
+function taken(pt, self, r = 0.8) {
+  for (const b of actors()) {
+    if (b === self || b.asleep) continue;
+    if (Math.hypot(b.root.position.x - pt.x, b.root.position.z - pt.z) < r) return true;
+    if (b.__dest && Math.hypot(b.__dest.x - pt.x, b.__dest.z - pt.z) < r) return true;
+  }
+  const p = playerPos(); return Math.hypot(p.x - pt.x, p.z - pt.z) < 1.0;
+}
 // how crowded is a point: Miis standing there or heading there
 function crowd(pt, self) {
   let n = 0;
@@ -295,9 +304,10 @@ function wander(a) {
   const keys = Object.keys(w); let total = keys.reduce((s, k) => s + w[k], 0), r = Math.random() * total, kind = keys[0];
   for (const k of keys) { if ((r -= w[k]) <= 0) { kind = k; break; } }
   let best = null, bestScore = Infinity;
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 12; i++) {
     const c = PLACES[kind](a); if (!c) continue;
     if (Math.hypot(c.x, c.z - 4) > (G.island.radius ?? 40) - 6) continue;
+    if (taken(c, a)) continue;                     // never stand on someone
     const score = crowd(c, a) + c.distanceTo(a.root.position) * 0.02;
     if (score < bestScore) { bestScore = score; best = c; }
   }
@@ -307,23 +317,36 @@ function wander(a) {
   return best;
 }
 function dwell(a) {
-  const d = DWELL[a.__place]; a.__dest = null;
+  const d = DWELL[a.__place]; a.__dest = null; a.__arrived = Date.now();
   return d ? d[0] + Math.random() * (d[1] - d[0]) : null;
 }
-// Steering: bend the walk direction away from nearby Miis and the player.
-const _tmp = new V();
+// Steering: look ahead along the path and sidestep the player and other Miis
+// early (like people passing on a sidewalk), plus a gentle push when close.
+function avoid(me, dir, ox, oz, radius, look, out) {
+  const tx = ox - me.x, tz = oz - me.z, dist = Math.hypot(tx, tz);
+  if (dist < 0.001) return;
+  if (dist < radius) { const k = (radius - dist) / radius; out.x -= tx / dist * k; out.z -= tz / dist * k; }
+  const along = tx * dir.x + tz * dir.z;
+  if (along > 0 && along < look) {
+    const lat = tx * -dir.z + tz * dir.x;                 // + means obstacle on our left
+    if (Math.abs(lat) < radius) {
+      const side = lat >= 0 ? -1 : 1, k = (1 - along / look) * (1 - Math.abs(lat) / radius) * 1.6;
+      out.x += -dir.z * side * k; out.z += dir.x * side * k;
+    }
+  }
+}
 function steer(a, dir, remaining) {
-  if (remaining < 0.8) return;                     // never fight the final approach
-  const me = a.root.position; let px = 0, pz = 0;
+  if (remaining < 0.6) return;                           // never fight the final approach
+  const me = a.root.position, mine = { x: 0, z: 0 }, pl = { x: 0, z: 0 };
   for (const b of actors()) {
     if (b === a || b.asleep) continue;
-    const dx = me.x - b.root.position.x, dz = me.z - b.root.position.z, d = Math.hypot(dx, dz);
-    if (d > 0.001 && d < 0.85) { const k = (0.85 - d) / 0.85; px += dx / d * k; pz += dz / d * k; }
+    if (a.social && b.social && (a.social.partner === b || b.social.partner === a)) continue; // walking up to a chat partner
+    avoid(me, dir, b.root.position.x, b.root.position.z, 0.7, 1.4, mine);
   }
-  const pp = playerPos(), dx = me.x - pp.x, dz = me.z - pp.z, d = Math.hypot(dx, dz);
-  if (d > 0.001 && d < 0.9) { const k = (0.9 - d) / 0.9 * 1.4; px += dx / d * k; pz += dz / d * k; }
+  const pp = playerPos(); avoid(me, dir, pp.x, pp.z, 1.15, 2.6, pl);
+  const px = mine.x * 0.9 + pl.x * 1.5, pz = mine.z * 0.9 + pl.z * 1.5;
   if (!px && !pz) return;
-  dir.x += px * 0.9; dir.z += pz * 0.9;
+  dir.x += px; dir.z += pz;
   const l = Math.hypot(dir.x, dir.z) || 1; dir.x /= l; dir.z /= l;
 }
 
@@ -393,13 +416,13 @@ const GREET = {
   ex: (a, b) => [L(a, any([`Oh. ${b.name}.`, `...Hi.`, `Hey. Long time.`])), L(b, any([`...Hey.`, `Oh. Hi.`, `Um. Hello.`]), 'idle')],
 };
 const BYE = {
-  stranger: (a, b) => [L(b, any([`Well, nice talking to you!`, `See you around!`]))],
-  new: (a, b) => [L(a, any([`Let's talk again sometime!`, `Catch you later!`]))],
+  stranger: (a, b) => [L(b, any([`Well, nice talking to you!`, `See you around!`]), 'wave')],
+  new: (a, b) => [L(a, any([`Let's talk again sometime!`, `Catch you later!`]), 'wave')],
   friend: (a, b) => [L(b, any([`See you later!`, `Talk soon!`, `Let's hang out again!`]), 'wave')],
   best: (a, b) => [L(a, any([`Same time tomorrow?`, `Don't be a stranger!`, `Love ya, ${b.name}!`]), 'cheer'), L(b, any([`Obviously!`, `You know it!`]), 'happy')],
   sweet: (a, b) => [L(b, any([`See you soon... ♥`, `I'll miss you!`, `Don't go too far, okay?`]), 'love')],
   spouse: (a, b) => [L(a, any([`See you at home!`, `Don't be late for dinner!`, `Love you!`]), 'love')],
-  family: (a, b) => [L(b, any([`Take care!`, `Say hi to everyone at home!`]))],
+  family: (a, b) => [L(b, any([`Take care!`, `Say hi to everyone at home!`]), 'wave')],
   ex: (a, b) => [L(a, any([`Well... bye.`, `Anyway. See you.`]), 'idle')],
 };
 
@@ -501,5 +524,160 @@ const introLines = (a, b) => [L(a, any([`Oh! Hi there. I'm ${a.name}.`, `Hello! 
   L(b, any([`Nice to meet you! I'm ${b.name}!`, `Hi ${a.name}! I'm ${b.name}.`, `Oh, hello! ${b.name}. Pleased to meet you!`]), 'happy'),
   L(a, voice(a).loud ? `Let's be friends!` : any([`I hope we'll get along.`, `See you around, ${b.name}!`]), 'happy')];
 
-window.__kl = { gather, frontSpot, pickWant, wander, dwell, steer, chat, fightLines, introLines };
+// ---------------------------------------------------------------------------
+// 5. Speech bubbles: readable up close, shrink with distance, fade far away
+// ---------------------------------------------------------------------------
+// The bubble plane is 0.8 m wide at scale 1. Aim for ~16 degrees of view up
+// close (never bigger), real-object size beyond ~3 m, gone past ~16 m.
+function bubbleScale(d) {
+  const s = Math.min(1.05, Math.max(0.42, d * 0.3514));
+  const fade = d < 12 ? 1 : Math.max(0, 1 - (d - 12) / 4);
+  return Math.max(0.0001, s * fade);
+}
+
+// ---------------------------------------------------------------------------
+// 6. Interaction polish: open stance toward the player, listener reactions,
+//    performances that face the player
+// ---------------------------------------------------------------------------
+// Chats near the player: Miis angle themselves half toward the player
+// (like Tomodachi's camera-friendly staging) instead of showing their backs.
+function audience(mid) {
+  const p = playerPos();
+  return Math.hypot(p.x - mid.x, p.z - mid.z) < 8 ? new V(p.x, 0, p.z) : null;
+}
+// While one Mii talks, the other reacts a beat later.
+const REACT = {
+  laugh: ['laugh', 'happy'], cheer: ['cheer', 'happy', 'laugh'], happy: ['happy', 'laugh'],
+  surprised: ['surprised'], sad: ['sad'], angry: ['surprised', 'angry'], love: ['love', 'happy'],
+  yuck: ['laugh', 'surprised'], hungry: ['laugh', 'happy'], wave: ['wave', 'hopwave'], peace: ['happy', 'cheer'],
+};
+function react(chat, speaker, emote, d = 2.4) {
+  const other = chat.a === speaker ? chat.b : chat.a; if (!other || other.asleep) return;
+  const pool = REACT[emote] ?? (Math.random() < .35 ? ['happy'] : null);
+  if (!pool) return;
+  const e = chat.fight ? 'angry' : pick(pool);
+  setTimeout(() => { if (chat.a?.social && chat.b?.social) other.emote?.(e, Math.min(1.6, d * .6)); }, Math.min(900, d * 400));
+}
+// Group performances (dance, group photo, workout) line up facing the player
+// a few steps away instead of circling around them.
+const PERFORM = new Set(['dance', 'photo', 'exercise']);
+function formation(def, cast, center) {
+  if (!PERFORM.has(def.id) || def.spot || cast.length < 2) return null;
+  const p = playerPos(); const toP = new V(p.x - center.x, 0, p.z - center.z); const d = toP.length();
+  if (d > 10) return null;
+  toP.normalize();
+  const c = center.clone(); if (d < 3.4) c.addScaledVector(toP, -(3.4 - d));     // keep a stage distance
+  const side = new V().crossVectors(toP, new V(0, 1, 0)).normalize();
+  const gap = 0.85, spots = cast.map((_, i) => { const s = c.clone().addScaledVector(side, (i - (cast.length - 1) / 2) * gap); s.y = ground(s.x, s.z); return s; });
+  return { spots, face: new V(p.x, 0, p.z) };
+}
+
+// ---------------------------------------------------------------------------
+// 7. Life around the player: noticing you, walking together
+// ---------------------------------------------------------------------------
+// A stand-in "partner" so socialGo can face/approach a point (like the scenes'
+// helper): Miis look at it and stop next to it.
+const spotTarget = (pos, lookY = 1.55) => ({ root: { position: pos }, mii: { headTopWorld: t => t.set(pos.x, lookY, pos.z) } });
+const free = a => !a.asleep && !a.busy && !a.social && !a.accident && a.activity === 'out' && a.res.age !== 'baby';
+function greetLine(a) {
+  const p = a.res.problem, v = voice(a);
+  if (p?.type === 'want') return `Psst... I'm really craving ${p.kind === 'food' ? foods(p.item) : 'a new outfit'}.`;
+  if (p?.type === 'hungry') return any([`I'm sooo hungry...`, `Got anything to eat?`]);
+  if (p?.type === 'sad') return any([`Oh... hi.`, `I'm not doing so great today.`]);
+  if (a.res.mood?.kind === 'irritated') return `Hmph. Hi.`;
+  if (hour() < 10) return any([`Good morning!`, v.calm ? `Mmm... morning.` : `Morning! Isn't it a great day?`]);
+  if (hour() >= 19) return any([`Good evening!`, `Out for an evening stroll?`]);
+  return v.loud ? any([`Hey, it's you!`, `Hiii! Over here!`, `Oh! Hello hello!`]) : v.quiet ? any([`...Oh, hi.`, `Hello.`]) : any([`Oh, hi!`, `Hello there!`, `Nice day, huh?`]);
+}
+function notice(a, now) {
+  a.__noticeAt = now + 45000 + Math.random() * 45000;
+  const v = voice(a), friendly = !a.res.mood && a.res.problem?.type !== 'sad';
+  // chatty, friendly Miis sometimes come over to say hi
+  if (friendly && Math.random() < (v.loud ? .45 : .2)) {
+    const p = playerPos(), here = a.root.position.clone(), dir = here.clone().sub(p).setY(0);
+    if (dir.lengthSq() < 0.01) dir.set(0, 0, 1);
+    dir.normalize();
+    let spot = new V(p.x, 0, p.z).addScaledVector(dir, 1.25);
+    for (let k = 0; k < 8 && taken(spot, a, .7); k++) { const t = Math.atan2(dir.z, dir.x) + (k % 2 ? 1 : -1) * (0.5 + k * .25); spot = new V(p.x + Math.cos(t) * 1.25, 0, p.z + Math.sin(t) * 1.25); }
+    spot.y = ground(spot.x, spot.z);
+    a.socialGo?.(spotTarget(new V(p.x, 0, p.z)), spot, () => {
+      a.emote?.(v.hyper ? 'hopwave' : 'wave', 1.8);
+      a.chatSay?.(greetLine(a), 'talk', 2.6);
+      setTimeout(() => { if (a.social?.partner?.root) a.socialEnd?.(); }, 3200);
+    });
+    return 'came over';
+  }
+  a.emote?.(v.hyper ? 'hopwave' : 'wave', 1.6);
+  a.chatSay?.(greetLine(a), 'talk', 2.4);
+  return 'greeted';
+}
+// friends sometimes head off somewhere together after a nice chat
+function walkTogether(c) {
+  const { a, b } = c; if (!a || !b || a.asleep || b.asleep) return;
+  const dest = wander(a); if (!dest) return;
+  const kind = a.__place;
+  const side = new V().crossVectors(dest.clone().sub(a.root.position).setY(0).normalize(), new V(0, 1, 0)).multiplyScalar(0.75);
+  const da = dest.clone(), db = dest.clone().add(side); db.y = ground(db.x, db.z);
+  const where = { plaza: 'the plaza', bench: 'the bench', park: 'the park', beach: 'the beach', shops: 'the shops', garden: 'my place', friend: 'see our friends', stroll: 'a walk' }[kind] ?? 'a walk';
+  const verb = where === 'a walk' || where === 'see our friends' ? (where === 'a walk' ? 'go for a walk' : 'go see our friends') : `go to ${where}`;
+  setTimeout(() => {
+    if (a.social || b.social || a.busy || b.busy) return;
+    a.chatSay?.(`Want to ${verb}?`, 'talk', 2.2);
+    setTimeout(() => {
+      if (a.social || b.social) return;
+      b.chatSay?.(any([`Sure, let's go!`, `Good idea!`, `Lead the way!`]), 'happy', 2);
+      let arrived = 0; const done = () => { if (++arrived < 2) return; setTimeout(() => { a.socialEnd?.(); b.socialEnd?.(); a.__place = b.__place = kind; }, 1500); };
+      a.socialGo?.(b, da, done); b.socialGo?.(a, db, done);
+    }, 1400);
+  }, 600);
+}
+// watch new chats so friendly ones can end in a walk together
+{
+  const w = G.social.chats, push = w.push.bind(w);
+  w.push = (...cs) => {
+    for (const c of cs) if (!c.scripted && !c.intro) {
+      const t = tier(c.a, c.b);
+      if (['friend', 'best', 'sweet', 'spouse', 'family'].includes(t) && Math.random() < (t === 'friend' ? .25 : .45)) {
+        const prev = c.onEnd; c.onEnd = () => { prev?.(); if (!c.fight) walkTogether(c); };
+      }
+    }
+    return push(...cs);
+  };
+}
+// per-frame tick, riding on the game's own update
+{
+  let acc = 0;
+  const base = game.update.bind(game);
+  game.update = (dt, ...r) => {
+    const out = base(dt, ...r);
+    acc += dt; if (acc < 0.4) return out; acc = 0;
+    try {
+      const now = Date.now(), p = playerPos();
+      const mk = G.maker, makerOpen = typeof mk?.isOpen === 'function' ? mk.isOpen() : !!mk?.isOpen;
+      if (makerOpen || G.games?.playing || G.xr?.god?.active || G.proposal?.playing) return out;
+      // two idle Miis on the same spot: the newer arrival steps aside
+      const idle = actors().filter(a => free(a) && !a.__shuffling);
+      for (let i = 0; i < idle.length; i++) for (let j = i + 1; j < idle.length; j++) {
+        const a = idle[i], b = idle[j];
+        if (a.root.position.distanceTo(b.root.position) > 0.5) continue;
+        const mover = (a.__arrived ?? 0) > (b.__arrived ?? 0) ? a : b;
+        let spot = null;
+        for (let k = 0; k < 8 && !spot; k++) { const t = Math.random() * Math.PI * 2, c = mover.root.position.clone().add(new V(Math.cos(t) * .85, 0, Math.sin(t) * .85)); if (!taken(c, mover, .6)) spot = c; }
+        if (!spot) continue;
+        spot.y = ground(spot.x, spot.z); mover.__shuffling = true;
+        const look = (mover === a ? b : a).root.position.clone();
+        mover.socialGo?.(spotTarget(look), spot, () => setTimeout(() => { mover.__shuffling = false; if (mover.social?.partner?.root && !mover.social.partner.res) mover.socialEnd?.(); }, 400));
+        setTimeout(() => { mover.__shuffling = false; }, 6000);
+      }
+      for (const a of actors()) {
+        if (!free(a) || (a.__noticeAt ?? 0) > now) continue;
+        const d = Math.hypot(a.root.position.x - p.x, a.root.position.z - p.z);
+        if (d < 4 && d > 0.8) { notice(a, now); break; }   // one Mii at a time
+      }
+    } catch (e) { console.warn('[kokoro-life] tick', e); }
+    return out;
+  };
+}
+
+window.__kl = { gather, frontSpot, pickWant, wander, dwell, steer, chat, fightLines, introLines, bubbleScale, audience, react, formation, notice, walkTogether };
 console.info('[kokoro-life] loaded');

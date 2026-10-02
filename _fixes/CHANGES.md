@@ -220,3 +220,41 @@ add-on into the source and turn each hook into a direct call.**
   family links and problems pointing at it are cleaned up). It's saved, so the
   Mii stays gone after a reload. (The tablet's Residents page also has a
   goodbye button with a confirm step.)
+
+---
+
+# Round 3 — polish pass (bubbles, staging, steering, life around the player)
+
+## F20 — Speech bubbles filled the screen
+- **Bug:** the bubble scale was `clamp(1, d·tan12°/0.36, d·tan19°/0.36)`, so
+  every bubble covered 27–42° of view at any distance. A few talking Miis,
+  even far away, filled the screen.
+- **Fix:** the actor calls `__kl.bubbleScale(d)`, which sizes the bubble like
+  a real object: ~16° at 2–3 m, ~10° at 5 m, ~4° at 12 m, fading out by
+  16 m. The minimum is 0.42 up close, and the large-text setting still
+  applies.
+
+## F21 — Interaction staging
+- **Chats:** the initiator walks up to the other Mii, who waits and waves.
+  Before, both walked to a midpoint. When the player is within 8 m, both angle
+  toward the player (the `audience` argument of `socialGo`), so the player sees
+  faces rather than backs of heads. (social `F`)
+- **Listener reactions:** after each line, the listener reacts a beat later
+  (laugh, surprise, love, wave back…). (social chat runner, `__kl.react`)
+- **Performances:** dance, group photo and workout line up a few steps in
+  front of the player, facing them, instead of circling their centre.
+  (scenes `x`, `__kl.formation`)
+- **Steering rewrite:** walkers look ahead 2.6 m and sidestep the player (and
+  other Miis, 1.4 m) early, like people passing on a sidewalk, instead of only
+  being pushed away once already close.
+
+## F22 — Life around the player (add-on only)
+- **Noticing you:** a free Mii within 4 m turns and greets you in its own
+  voice, at most once every 45–90 s. If it has a want, hunger or a bad mood,
+  it mentions it ("Psst... I'm really craving pudding."). Chatty, friendly
+  Miis sometimes walk over to say hi. The greeting is skipped in the Mii
+  maker, minigames, God view and the proposal game.
+- **Walking together:** some friendly chats end with "Want to go to the
+  beach?" / "Sure, let's go!", and the pair walks side by side to that spot.
+- **Goodbyes:** every relationship tier except exes ends a chat with a wave,
+  and the listener waves back.
